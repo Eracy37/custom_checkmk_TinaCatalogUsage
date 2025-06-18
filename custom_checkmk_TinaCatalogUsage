@@ -10,8 +10,8 @@
 # Configuration
 API_URL="https://XXX"
 TOKEN="XXX"
-WARNING_THRESHOLD=90
-CRITICAL_THRESHOLD=97
+WARNING_THRESHOLD=XX
+CRITICAL_THRESHOLD=XX
  
 # API Request
 response=$(curl -s -k -w "\n%{http_code}" \
