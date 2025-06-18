@@ -1,0 +1,52 @@
+#!/bin/bash
+#===============================================================================
+# Script Name   : custom_checkmk_TinaCatalogUsage
+# Author        : GUERRY Cynthia (Eracy37)
+# Version       : 1.0.0
+# Last Modifed  : 17/06/2025
+# Description   : check API Catalog Tina for checkmk local
+#===============================================================================
+
+# Configuration
+API_URL="https://XXX"
+TOKEN="XXX"
+WARNING_THRESHOLD=90
+CRITICAL_THRESHOLD=97
+ 
+# API Request
+response=$(curl -s -k -w "\n%{http_code}" \
+  --request GET "$API_URL" \
+  --header 'Accept: application/json' \
+  --header 'Content-Type: application/json' \
+  --header "Authorization:Bearer $TOKEN")
+ 
+http_code=$(echo "$response" | tail -n1)
+response_body=$(echo "$response" | sed '$d')
+ 
+# Check API
+if [ "$http_code" -ne 200 ]; then
+    echo "1 StatusTinaApi - API KO - Statut HTTP: $http_code"
+    exit 1
+else
+    echo "0 StatusTinaApi - API OK - Statut HTTP: $http_code"
+fi
+
+catalogSize=$(echo "$response_body" | jq -r '.catalogSize')
+usedCatalogSize=$(echo "$response_body" | jq -r '.usedCatalogSize')
+ 
+# Conversion into Go
+realCatalogSize=$(echo "scale=2; $catalogSize / 1073741824" | bc)
+realUsedCatalogSize=$(echo "scale=2; $usedCatalogSize / 1073741824" | bc)
+freeSpace=$(echo "scale=2; $realCatalogSize - $realUsedCatalogSize" | bc)
+usagePercentage=$(echo "scale=2; $realUsedCatalogSize * 100 / $realCatalogSize" | bc)
+ 
+# Status
+status=0
+if (( $(echo "$usagePercentage >= $CRITICAL_THRESHOLD" | bc -l) )); then
+    status=2
+elif (( $(echo "$usagePercentage >= $WARNING_THRESHOLD" | bc -l) )); then
+    status=1
+fi
+ 
+# CheckMK output formatting
+echo "$status StatusTinaCatalog - Espace utilisé: ${usagePercentage}%  (Warn:$WARNING_THRESHOLD, Crit:$CRITICAL_THRESHOLD) | catalogSize=${realCatalogSize}GB usedCatalogSize=${realUsedCatalogSize}GB freeSpace=${freeSpace}GB usagePercentage=${usagePercentage}%"
